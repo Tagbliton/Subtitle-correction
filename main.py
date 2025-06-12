@@ -1,19 +1,17 @@
 import gradio as gr
 import time
-from openai import OpenAI
-from action import action, run
+
+from action import action, run, write_config_value
 from difflib import Differ
+from config import api_key
 
 
 
+if api_key != "YOUR API KEY":
+    password_state="API已输入"
+else:
+    password_state="API未输入"
 
-def client(api_key):
-    client = OpenAI(
-        # 若没有配置环境变量，请用阿里云百炼API Key将下行替换为：api_key="sk-xxx",
-        api_key="YOUR API KET",  # 如何获取API Key：https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key
-        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
-    )
-    return client
 
 
 #对比替换函数
@@ -30,14 +28,16 @@ with gr.Blocks() as demo:
     #侧边栏配置信息
     with gr.Sidebar():
         api_key = gr.Textbox(label="api_key", type="password")
-        role = gr.Textbox(label="system")
         with gr.Row():
             with gr.Column(scale=1):
                 save = gr.Button("保存配置")
             with gr.Column(scale=1):
                 default = gr.Button("恢复默认")
-        out_client = gr.Textbox()
-        save.click(fn=client, inputs=api_key, outputs=out_client)
+        out_state_put = gr.Textbox(show_label=False, value=password_state)
+        None_api = gr.Textbox(value="YOUR API KEY", visible=False)
+
+        save.click(fn=write_config_value, inputs=api_key, outputs=out_state_put)
+        default.click(fn=write_config_value, inputs=None_api, outputs=out_state_put)
 
     #主要运行界面
     with gr.Group():
@@ -61,9 +61,9 @@ with gr.Blocks() as demo:
                 model = gr.Dropdown(label="选择模型", choices=["deepseek-r1-0528", "Gemini-2.5-Flash"], interactive=True)
                 with gr.Row():
                     with gr.Column(scale=1):
-                        index = gr.Textbox(label="索引值", value=1)
+                        index = gr.Number(label="索引值", value=1)
                     with gr.Column(scale=1):
-                        batch = gr.Textbox(label="并发数", value=1)
+                        batch = gr.Number(label="并发数", value=1)
 
 
                 start2 = gr.Button("运行", variant="primary", size="lg")
@@ -71,8 +71,8 @@ with gr.Blocks() as demo:
         #结果面板
         with gr.Row():
             with gr.Column(scale=1):
-                results2 = gr.Textbox(label="修改前")
-                results3 = gr.Textbox(label="修改后")
+                results2 = gr.TextArea(label="修改前")
+                results3 = gr.TextArea(label="修改后")
                 compare = gr.HighlightedText(
                     label="Diff",
                     combine_adjacent=True,
