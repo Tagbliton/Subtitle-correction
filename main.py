@@ -1,10 +1,9 @@
 import gradio as gr
 import time
 
-from action import action, run, write_config_value
+from action import action, run, write_config_value, token
 from difflib import Differ
 from config import api_key
-
 
 
 if api_key != "YOUR API KEY":
@@ -24,7 +23,7 @@ def diff_texts(text1, text2):
 
 
 
-with gr.Blocks() as demo:
+with gr.Blocks(fill_height=True, fill_width=True) as demo:
     #侧边栏配置信息
     with gr.Sidebar():
         api_key = gr.Textbox(label="api_key", type="password")
@@ -46,11 +45,11 @@ with gr.Blocks() as demo:
             with gr.Column(scale=1):
                 with gr.Row():
                     with gr.Column(scale=2):
-                        load_file = gr.File(label="上传字幕")
+                        load_file = gr.File(label="上传字幕", height=237)
                         cut_lines = gr.Slider(label="分割阈值", minimum=100, maximum=1000, value=500, interactive=True)
                     with gr.Column(scale=2):
-                        output1 = gr.Textbox(label="输出", lines=4)
-                        output2 = gr.File(label="输出", height=40)
+                        output1 = gr.Textbox(label="输出", lines=7)
+                        output2 = gr.File(label="输出", height=237)
                 start1 = gr.Button("预处理", variant="primary", size="lg")
 
             start1.click(fn=action, inputs=(load_file, cut_lines), outputs=(output1, output2))
@@ -58,31 +57,43 @@ with gr.Blocks() as demo:
 
             #运行配置面板
             with gr.Column(scale=1):
-                model = gr.Dropdown(label="选择模型", choices=["deepseek-r1-0528", "Gemini-2.5-Flash"], interactive=True)
+                start2 = gr.Button("运行", variant="primary", size="lg")
+
                 with gr.Row():
                     with gr.Column(scale=1):
-                        index = gr.Number(label="索引值", value=1)
+                        model = gr.Dropdown(label="选择模型", choices=["deepseek-r1-0528", "Gemini-2.5-Flash"],interactive=True)
+                        message = gr.Textbox(label="Token count", value=f"0/64000")
                     with gr.Column(scale=1):
-                        batch = gr.Number(label="并发数", value=1)
+                        index = gr.Number(label="索引值", value=1, minimum=1)
+                        batch = gr.Number(label="并发数", value=1, minimum=1)
 
 
-                start2 = gr.Button("运行", variant="primary", size="lg")
-                results1 = gr.Textbox(label="消息")
-        #结果面板
+
+
+
+                results1 = gr.Textbox(label="状态")
+                results6 = gr.File(label="输出", height=237)
+                index.change(fn=token, inputs=index, outputs=message)
+
+    #结果面板
+    with gr.Group():
         with gr.Row():
             with gr.Column(scale=1):
-                results2 = gr.TextArea(label="修改前")
-                results3 = gr.TextArea(label="修改后")
-                compare = gr.HighlightedText(
-                    label="Diff",
-                    combine_adjacent=True,
-                    show_legend=True,
-                    color_map={"+": "green", "-": "red"})
+                results3 = gr.TextArea(label="确定的错误", lines=12)
+            with gr.Column(scale=1):
+                results4 = gr.TextArea(label="可能的错误", lines=12)
+            results2 = gr.TextArea(label="修改前")
+            results5 = gr.TextArea(label="修改后")
+            compare = gr.HighlightedText(
+                label="Diff",
+                combine_adjacent=True,
+                show_legend=True,
+                color_map={"+": "green", "-": "red"})
             # with gr.Column(scale=1):
 
 
-        start2.click(fn=run, inputs=(index, cut_lines), outputs=(results1, results2, results3))
+        start2.click(fn=run, inputs=(index, cut_lines), outputs=(results1, results2, results3, results4, results5, results6))
 
-        gr.Interface(diff_texts, [results2, results3], compare, theme=gr.themes.Base(), submit_btn="检视",clear_btn=None)
+        gr.Interface(diff_texts, [results2, results5], compare, theme=gr.themes.Base(), submit_btn="检视",clear_btn=None)
 
 demo.launch()
