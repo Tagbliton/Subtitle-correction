@@ -1,9 +1,12 @@
 import json
+import os
+import time
+
 from config import api_key
 from openai import OpenAI
 from deepseek_v3_tokenizer.deepseek_tokenizer import tokenizer
 
-#提取文本
+#从srt字幕文件提取文本
 def extract_text_from_srt(input_file):
     output_file='output.txt'
     with open(input_file, 'r', encoding='utf-8') as file:
@@ -21,9 +24,10 @@ def extract_text_from_srt(input_file):
 
 #切分字幕
 def split_file(max_lines):
-    input_file_path = "output.txt"
-    output_prefix = "results"
-    with open(input_file_path, 'r', encoding='utf-8') as file:
+    #检查并删除原先切分结果
+    delete_files()
+
+    with open("output.txt", 'r', encoding='utf-8') as file:
         lines = file.readlines()
 
     total_lines = len(lines)
@@ -33,7 +37,7 @@ def split_file(max_lines):
     for i in range(num_files):
         start_line = i * max_lines
         end_line = min(start_line + max_lines, total_lines)
-        output_file_path = f"{output_prefix}_{i + 1}.txt"
+        output_file_path = f"results_{i + 1}.txt"
 
         with open(output_file_path, 'w', encoding='utf-8') as out_file:
             out_file.writelines(lines[start_line:end_line])
@@ -41,22 +45,42 @@ def split_file(max_lines):
         message = f"{message}Created {output_file_path} with {end_line - start_line} lines.\n"
 
 
-    return f"发现{total_lines}条字幕.\n{message}"
+    return f"发现{total_lines}条字幕.\n{message}", i
+
+
+#一键删除切分结果  # 调用函数，默认从 results_1.txt 开始删除
+def delete_files(base_name='results', start_index=0):
+    i = start_index
+    while True:
+        file_name = f"{base_name}_{i + 1}.txt"
+        if os.path.exists(file_name):
+            try:
+                os.remove(file_name)
+                print(f"Deleted: {file_name}")
+            except Exception as e:
+                print(f"Error deleting {file_name}: {e}")
+        else:
+            break
+        i += 1
+
+
+
+
 
 #一键提取并切分
 def action(input_file, max_lines):
     output1, output2=extract_text_from_srt(input_file)
-    output3=split_file(max_lines)
+    output3, output4=split_file(max_lines)
 
-    return (f"{output1}\n{output3}", output2)
+    return f"{output1}\n{output3}", output2, output4
 
 
 
 #读取文本
-def read_file_to_variable(file_path):
+def read_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
-        A = file.read()
-    return A
+        results = file.read()
+    return results
 
 #保存文件
 def save_file(file, value):
@@ -66,10 +90,14 @@ def save_file(file, value):
     return f"内容已成功写入 {file}.txt 文件。"
 
 #计算token
-def token(index):
-    value = read_file_to_variable(f"results_{index}.txt")
-    return f"{tokenizer(value)}/64000"
-
+def token(index, results=None):
+    time.sleep(1)
+    if results is None:
+        value = read_file(f"results_{index}.txt")
+        return f"{tokenizer(value)+838}/64000"
+    else:
+        value = read_file(f"results_{index}.txt") + results
+        return f"{tokenizer(value) + 838}/64000"
 
 
 
@@ -221,7 +249,7 @@ def system_prompt(index, cut_lines):
 def run(index, cut_lines):
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     file = f"results_{index}"
-    user_prompt = read_file_to_variable(f"{file}.txt")
+    user_prompt = read_file(f"{file}.txt")
 
 
     response = client.chat.completions.create(
@@ -273,10 +301,10 @@ def run(index, cut_lines):
 
 
     #保存结果
-    message= save_file(f"{file}修改建议.txt", f"{before_lines}{error_lines}{maybe_lines}{after_lines}")
+    message= save_file(f"{file}修改建议.txt", f"确定的错误:\n{error_lines}\n可能的错误:\n{maybe_lines}\n修改前:\n{before_lines}\n修改后:\n{after_lines}")
 
 
-    return message, before_lines, error_lines, maybe_lines, after_lines, f"{file}修改建议.txt"
+    return message, before_lines, error_lines, maybe_lines, after_lines, f"results修改建议_{index}.txt", response.choices[0].message.content
 
 
 def write_config_value(value):
