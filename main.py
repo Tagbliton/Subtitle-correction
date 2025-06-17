@@ -8,6 +8,19 @@ from difflib import Differ
 from config import api_key
 
 
+import os
+
+folder_name = 'temp'
+
+if not os.path.exists(folder_name):
+    os.makedirs(folder_name)
+    print(f"文件夹 '{folder_name}' 已创建。")
+else:
+    print(f"文件夹 '{folder_name}' 已存在。")
+
+
+
+
 if api_key != "YOUR API KEY":
     password_state="API已输入"
 else:
