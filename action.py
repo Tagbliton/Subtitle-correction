@@ -186,14 +186,13 @@ def save_file(file, value):
     return f"内容已成功写入 {file} 文件。"
 
 #计算token
-def math_token(index, results=None):
+def math_token(index):
     time.sleep(1)
-    if results is None:
+    try:
         value = read_file(f"temp/results_{index}.txt")
         return f"{tokenizer(value)+838}/64000"
-    else:
-        value = read_file(f"temp/results_{index}.txt") + results
-        return f"{tokenizer(value) + 838}/64000"
+    except:
+        return f"838/64000"
 
 
 
