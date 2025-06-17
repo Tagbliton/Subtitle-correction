@@ -8,7 +8,7 @@ from deepseek_v3_tokenizer.deepseek_tokenizer import tokenizer
 
 #从srt字幕文件提取文本
 def extract_text_from_srt(input_file):
-    output_file='output.txt'
+    output_file='temp/output.txt'
     with open(input_file, 'r', encoding='utf-8') as file:
         lines = file.readlines()
 
@@ -19,7 +19,37 @@ def extract_text_from_srt(input_file):
     with open(output_file, 'w', encoding='utf-8') as file:
         file.write('\n'.join(text_lines))
 
-    return "字幕文本已提取至output.txt", "output.txt"
+    return "字幕文本已提取至output.txt", "temp/output.txt"
+
+
+# 逆向
+# 从文本替换srt字幕文件
+def replace_text_in_srt(input_file, new_text_file):
+    with open(input_file, 'r', encoding='utf-8') as srt_file:
+        srt_lines = srt_file.readlines()
+
+    with open(new_text_file, 'r', encoding='utf-8') as text_file:
+        new_texts = text_file.readlines()
+
+    new_srt_lines = []
+    text_index = 0
+
+    for i in range(len(srt_lines)):
+        if i % 4 == 2:  # This is a line where the subtitle text should be
+            if text_index < len(new_texts):
+                new_srt_lines.append(new_texts[text_index].strip() + '\n')
+                text_index += 1
+            else:
+                print(f"警告: 新文本文件中的行数不足，无法替换第 {i // 4 + 1} 行字幕。")
+                new_srt_lines.append(srt_lines[i])
+        else:
+            new_srt_lines.append(srt_lines[i])
+
+    output_file = f"temp/new_subtitles.srt"
+    with open(output_file, 'w', encoding='utf-8') as out_file:
+        out_file.writelines(new_srt_lines)
+    print(f"新的字幕文件已保存至{output_file}")
+    return output_file
 
 
 #切分字幕
@@ -27,32 +57,108 @@ def split_file(max_lines):
     #检查并删除原先切分结果
     delete_files()
 
-    with open("output.txt", 'r', encoding='utf-8') as file:
+    with open("temp/output.txt", 'r', encoding='utf-8') as file:
         lines = file.readlines()
 
     total_lines = len(lines)
     num_files = (total_lines + max_lines - 1) // max_lines  # 计算需要多少个文件
-    message= ""
-
+    message=""
+    output_file=""
+    json_string=""
     for i in range(num_files):
         start_line = i * max_lines
         end_line = min(start_line + max_lines, total_lines)
-        output_file_path = f"results_{i + 1}.txt"
+        output_file_path = f"temp/results_{i + 1}.txt"
 
         with open(output_file_path, 'w', encoding='utf-8') as out_file:
             out_file.writelines(lines[start_line:end_line])
 
         message = f"{message}Created {output_file_path} with {end_line - start_line} lines.\n"
+        output_file = f"{output_file}{output_file_path}\n"
+        json_string = f'{json_string}\n    "{i + 1}": [\n        "index": "{i + 1}",\n        "file": "{output_file_path}",\n        "state": "ready"\n    ],'
+    json_string = f"{json_string[:-1]}\n"
+    json_string = f'[{json_string}]'
+    json_string = json_string.replace('[', '{').replace(']', '}')
+
+    save_file("class_save.py", json_string)
+    return f"发现{total_lines}条字幕.\n{message}", i, output_file, json_string
+
+# 逆向
+# 合并字幕
+def merge_files(index):
+    merged_content = []
+
+    for i in range(1, index + 1):
+        file_name = f'temp/clear_results_{i}.txt'
+        try:
+            with open(file_name, 'r', encoding='utf-8') as file:
+                content = file.read()
+                merged_content.append(content)
+        except FileNotFoundError:
+            print(f"警告: 文件 {file_name} 未找到，跳过此文件。")
+    output_file=f"temp/output_1_{i}.txt"
+    # 将所有内容写入输出文件
+    with open(output_file, 'w', encoding='utf-8') as out_file:
+        out_file.write('\n'.join(merged_content))
+    print(f"所有文件已合并至{output_file}")
+    return output_file
 
 
-    return f"发现{total_lines}条字幕.\n{message}", i
+
+
+
+# 将修改结果写入文本
+def write_text(input_text, now_index):
+    if now_index:
+        now_file=f"temp/clear_results_{now_index}.txt"
+        # 按行分割输入文本
+        lines = input_text.strip().split('\n')
+
+        # 去除每行的序号
+        cleaned_lines = []
+        for line in lines:
+            parts = line.split(': ', 1)  # 分割一次以确保只去掉序号部分
+            if len(parts) == 2:
+                cleaned_lines.append(parts[1])
+            else:
+                cleaned_lines.append(line)  # 如果没有找到序号，则保持原样
+
+        # 将清理后的文本写入输出文件
+        with open(now_file, 'w', encoding='utf-8') as file:
+            file.write('\n'.join(cleaned_lines))
+        print(f"文本已写入{now_file}")
+        return f"文本已写入{now_file}"
+    else:
+        return None
+
+
+
+
+# 一键提取并切分
+def action1(input_file, max_lines):
+    output1, output2=extract_text_from_srt(input_file)
+    output3, max_index, output_file, json_data=split_file(max_lines)
+
+    return f"{output1}\n{output3}", output2, max_index, output_file, json_data
+# 逆向
+# 一键合并并替换
+def action2(input_file, index):
+    new_text_file=merge_files(index)
+    output=replace_text_in_srt(input_file, new_text_file)
+    return output
+
+
+
+
+
+
 
 
 #一键删除切分结果  # 调用函数，默认从 results_1.txt 开始删除
 def delete_files(base_name='results', start_index=0):
     i = start_index
     while True:
-        file_name = f"{base_name}_{i + 1}.txt"
+        file_name = f"temp/{base_name}_{i + 1}.txt"
         if os.path.exists(file_name):
             try:
                 os.remove(file_name)
@@ -66,16 +172,6 @@ def delete_files(base_name='results', start_index=0):
 
 
 
-
-#一键提取并切分
-def action(input_file, max_lines):
-    output1, output2=extract_text_from_srt(input_file)
-    output3, output4=split_file(max_lines)
-
-    return f"{output1}\n{output3}", output2, output4
-
-
-
 #读取文本
 def read_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -86,17 +182,17 @@ def read_file(file_path):
 def save_file(file, value):
     with open(file, 'w', encoding='utf-8') as f:
         f.write(value)
-    print(f"内容已成功写入 {file}.txt 文件。")
-    return f"内容已成功写入 {file}.txt 文件。"
+    print(f"内容已成功写入 {file} 文件。")
+    return f"内容已成功写入 {file} 文件。"
 
 #计算token
-def token(index, results=None):
+def math_token(index, results=None):
     time.sleep(1)
     if results is None:
-        value = read_file(f"results_{index}.txt")
+        value = read_file(f"temp/results_{index}.txt")
         return f"{tokenizer(value)+838}/64000"
     else:
-        value = read_file(f"results_{index}.txt") + results
+        value = read_file(f"temp/results_{index}.txt") + results
         return f"{tokenizer(value) + 838}/64000"
 
 
@@ -248,7 +344,7 @@ def system_prompt(index, cut_lines):
 #deepseek
 def run(index, cut_lines):
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
-    file = f"results_{index}"
+    file = f"temp/results_{index}"
     user_prompt = read_file(f"{file}.txt")
 
 
@@ -304,7 +400,7 @@ def run(index, cut_lines):
     message= save_file(f"{file}修改建议.txt", f"确定的错误:\n{error_lines}\n可能的错误:\n{maybe_lines}\n修改前:\n{before_lines}\n修改后:\n{after_lines}")
 
 
-    return message, before_lines, error_lines, maybe_lines, after_lines, f"results修改建议_{index}.txt", response.choices[0].message.content
+    return message, before_lines, error_lines, maybe_lines, after_lines, f"{file}修改建议.txt", response.choices[0].message.content, index
 
 
 def write_config_value(value):
