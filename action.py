@@ -63,8 +63,8 @@ def split_file(max_lines):
     total_lines = len(lines)
     num_files = (total_lines + max_lines - 1) // max_lines  # 计算需要多少个文件
     message=""
-    output_file=""
-    json_string=""
+
+
     for i in range(num_files):
         start_line = i * max_lines
         end_line = min(start_line + max_lines, total_lines)
@@ -74,14 +74,9 @@ def split_file(max_lines):
             out_file.writelines(lines[start_line:end_line])
 
         message = f"{message}Created {output_file_path} with {end_line - start_line} lines.\n"
-        output_file = f"{output_file}{output_file_path}\n"
-        json_string = f'{json_string}\n    "{i + 1}": [\n        "index": "{i + 1}",\n        "file": "{output_file_path}",\n        "state": "ready"\n    ],'
-    json_string = f"{json_string[:-1]}\n"
-    json_string = f'[{json_string}]'
-    json_string = json_string.replace('[', '{').replace(']', '}')
 
-    save_file("class_save.py", json_string)
-    return f"发现{total_lines}条字幕.\n{message}", i, output_file, json_string
+
+    return f"发现{total_lines}条字幕.\n{message}", i
 
 # 逆向
 # 合并字幕
@@ -137,9 +132,9 @@ def write_text(input_text, now_index):
 # 一键提取并切分
 def action1(input_file, max_lines):
     output1, output2=extract_text_from_srt(input_file)
-    output3, max_index, output_file, json_data=split_file(max_lines)
+    output3, max_index=split_file(max_lines)
 
-    return f"{output1}\n{output3}", output2, max_index, output_file, json_data
+    return f"{output1}\n{output3}", output2, max_index
 # 逆向
 # 一键合并并替换
 def action2(input_file, index):
