@@ -11,9 +11,7 @@ from difflib import Differ
 from config import api_key
 
 
-
-
-
+#检测并自动创建temp文件夹
 folder_name = 'temp'
 
 if not os.path.exists(folder_name):
@@ -24,13 +22,16 @@ else:
 
 
 
-
+#API状态预览
 if api_key != "YOUR API KEY":
     password_state="API已输入"
 else:
     password_state="API未输入"
 
 
+#重置索引
+def Reset_index(min_index):
+    return min_index
 
 #对比替换函数
 def diff_texts(text1, text2):
@@ -52,32 +53,91 @@ with gr.Blocks() as demo:
         with antd.ConfigProvider():
             #侧边栏配置信息
             with gr.Sidebar():
-                api_key = gr.Textbox(label="api_key", type="password")
-                save = gr.Button("保存配置")
-                default = gr.Button("恢复默认")
-                out_state_put = gr.Textbox(show_label=False, value=password_state)
+                btn = antd.Button("开始教程",
+                                  type="primary",
+                                  elem_id="tour-begin-btn")
+                with antd.Tour(open=False) as tour:
+                    antd.Tour.Step(
+                        title="教程",
+                        description="开始教程",
+                        get_target=None)
+                    antd.Tour.Step(
+                        title="API_KEY",
+                        description="1.输入API_KEY，保存配置并重启",
+                        get_target=
+                        "() => document.querySelector('#first')",
+                        placement="right")
+                    antd.Tour.Step(
+                        title="字幕预处理",
+                        description="2.上传srt字幕文件，设置分块阈值，进行文本预处理(注：分块阈值表示每个分块最大字幕条数，分块大小影响模型处理速度)",
+                        get_target=
+                        "() => document.querySelector('#second')",
+                        placement="bottom")
+                    antd.Tour.Step(
+                        title="运行",
+                        description="3.选择模型，设置参数并运行(索引值表示当前处理的分块，每次运行后自动+1)",
+                        get_target=
+                        "() => document.querySelector('#third')",
+                        placement="left")
+                    antd.Tour.Step(
+                        title="结果",
+                        description="4.文本修改建议",
+                        get_target=
+                        "() => document.querySelector('#fourth')",
+                        placement="left")
+                    antd.Tour.Step(
+                        title="检视",
+                        description="5.修改前后对比",
+                        get_target=
+                        "() => document.querySelector('#fifth')",
+                        placement="left")
+                    antd.Tour.Step(
+                        title="修改",
+                        description="6.在此处继续修改",
+                        get_target=
+                        "() => document.querySelector('#sixth')",
+                        placement="left")
+                    antd.Tour.Step(
+                        title="输出修改后分块",
+                        description="7.确认完成后输出修改后分块",
+                        get_target=
+                        "() => document.querySelector('#seventh')",
+                        placement="left")
+                    antd.Tour.Step(
+                        title="合并全部并应用",
+                        description="8.待所有分块完成后合并全部并输出新字幕",
+                        get_target=
+                        "() => document.querySelector('#eighth')",
+                        placement="top")
+
+                with gr.Column(elem_id="first"):
+                    api_key = gr.Textbox(label="api_key", type="password")
+                    save = gr.Button("保存配置")
+                    default = gr.Button("恢复默认")
+                    out_state_put = gr.Textbox(show_label=False, value=password_state)
                 system_prompt = antd.Input.Textarea()
                 None_api = gr.Textbox(value="YOUR API KEY", visible=False)
                 results7 = gr.Textbox(visible=False)
                 max_index = gr.Number(visible=False)
-                now_index = gr.File(visible=False)
+                now_index = gr.Number(visible=False)
+                min_index = gr.Number(value=1, visible=False)
 
             # #主要运行界面
             with gr.Group():
                 with gr.Row():
                     #预处理面板
-                    with gr.Column(scale=1):
+                    with gr.Column(scale=1, elem_id="second"):
                         with gr.Row():
                             with gr.Column(scale=2):
                                 load_file = gr.File(label="上传字幕", height=237)
-                                cut_lines = gr.Slider(label="分割阈值", minimum=100, maximum=1000, value=500, interactive=True)
+                                cut_lines = gr.Slider(label="分块阈值", minimum=100, maximum=1000, value=500, interactive=True)
                             with gr.Column(scale=2):
-                                output1 = gr.Textbox(label="输出", lines=7)
+                                output1 = gr.Textbox(label="分块输出", lines=7)
                                 output2 = gr.File(label="输出", height=237)
                         start1 = gr.Button("预处理", variant="primary", size="lg")
 
                     #运行配置面板
-                    with gr.Column(scale=1):
+                    with gr.Column(scale=1, elem_id="third"):
                         with gr.Row():
                             with gr.Column(scale=1):
                                 model = gr.Dropdown(label="选择模型", choices=["deepseek-r1-0528", "Gemini-2.5-Flash"],interactive=True)
@@ -93,24 +153,31 @@ with gr.Blocks() as demo:
 
             #结果面板
             with gr.Group():
-                with gr.Row():
+                with gr.Row(height=304, max_height=304, elem_id="fourth"):
                     with gr.Column(scale=1):
                         results3 = gr.Textbox(label="确定的错误", lines=12, interactive=True)
-                        results4 = gr.Textbox(label="可能的错误", lines=12, interactive=True)
                     with gr.Column(scale=1):
-                        save_text = gr.Button("应用", variant="primary", size="lg")
-                        output_text = gr.Button("输出新字幕", variant="primary", size="lg")
-                        save_output = gr.Textbox(label="输出")
-
+                        results4 = gr.Textbox(label="可能的错误", lines=12, interactive=True)
+                with gr.Row(elem_id="fifth"):
                     results2 = gr.Textbox(label="修改前", lines=16, interactive=True)
-                    results5 = gr.Textbox(label="修改后", lines=16, interactive=True)
+                    results5 = gr.Textbox(label="修改后", lines=16, interactive=True, elem_id="sixth")
                     compare = gr.HighlightedText(
                         label="Diff",
                         combine_adjacent=True,
                         show_legend=True,
-                        color_map={"+": "green", "-": "red"})
-                # 检视对比
-                gr.Interface(diff_texts, [results2, results5], compare, theme=gr.themes.Base(), submit_btn="检视",clear_btn=None)
+                        color_map={"+": "green", "-": "red"},)
+                    # 检视对比
+                    gr.Interface(diff_texts, [results2, results5], compare, theme=gr.themes.Base(), submit_btn="检视",clear_btn=None)
+
+                save_text = gr.Button("输出修改后分块", variant="primary", size="lg", elem_id="seventh")
+                output_text = gr.Button("合并全部并应用", variant="primary", size="lg", elem_id="eighth")
+                save_output = gr.Textbox(label="输出")
+
+                #教程
+                btn.click(lambda: gr.update(open=True), outputs=[tour])
+                gr.on([tour.close, tour.finish],
+                      lambda: gr.update(open=False),
+                      outputs=[tour])
 
 
 
@@ -123,7 +190,7 @@ with gr.Blocks() as demo:
 
                 # 预处理 #提取并切分
                 start1.click(fn=action1, inputs=(load_file, cut_lines),outputs=(output1, output2, max_index))
-
+                start1.click(fn=Reset_index, inputs=min_index, outputs=index)
                 # 预处理后计算token
                 start1.click(fn=math_token, inputs=index, outputs=message)
                 # 切换索引计算token
